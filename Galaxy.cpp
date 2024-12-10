@@ -1,136 +1,182 @@
 #include <iostream>
 #include <vector>
-#include <string>
-#include <map>
 #include <limits>
+#include <memory>
+#include <algorithm>
+#include <random>
 
 using namespace std;
 
-class CelestialBody {
+class CelestialBody { // Базовый класс для небесных тел
 protected:
     string name;
 public:
     CelestialBody(const string& name) : name(name) {}
-    virtual ~CelestialBody() {}
-    string getName() const { return name; }
+    virtual ~CelestialBody() {} // Виртуальный деструктор
+    string getName() const { return name; } // Метод для получения названия
 };
 
-class Planet : public CelestialBody {
+class Planet : public CelestialBody { // Класс планеты, наследующий от CelestialBody
 private:
-    double production;
-    double demand;
-    double technology;
+    double production; // Производство ресурсов
+    double demand; // Спрос на ресурсы
+    double technology; // Уровень технологии
 public:
     Planet(const string& name, double production, double demand, double technology)
         : CelestialBody(name), production(production), demand(demand), technology(technology) {}
 
     double produceResources() {
-        return production; 
+        return production; // Возвращаем полное производство
     }
 
     void improveProduction(double amount) {
-        production += amount;
-        cout << name << " production improved by " << amount << " units." << endl;
+        production += amount; // Улучшаем производство на заданное количество
+        cout << name << " производство улучшилось на " << amount << " кредитов." << endl;
     }
 
     double getDemand() const { return demand; }
+    double getProduction() const { return production; }
+    virtual void printType() const { cout << "Планета: " << name << endl; }
 };
 
-class Asteroid : public CelestialBody {
+class Asteroid : public CelestialBody { // Класс астероида, наследующий от CelestialBody
 private:
-    double miningValue;
+    double miningValue; // Значение добычи ресурсов
 public:
     Asteroid(const string& name, double miningValue)
         : CelestialBody(name), miningValue(miningValue) {}
 
     double mineResources() {
-        return miningValue; 
+        return miningValue; // Возвращаем значение добычи ресурсов
     }
+
+    virtual void printType() const { cout << "Астероид: " << name << endl; }
 };
 
-class Corporation {
+class Corporation { // Базовый класс для корпораций
 protected:
     string name;
 public:
     Corporation(const string& name) : name(name) {}
     virtual ~Corporation() {}
-    virtual void transportResources() = 0;  
+    virtual void transportResources(double& profit) = 0;
+    string getName() const { return name; }
 };
 
-class LogisticsCompany : public Corporation {
+class LogisticsCompany : public Corporation { // Класс логистической компании
 public:
     LogisticsCompany(const string& name) : Corporation(name) {}
-
-    void transportResources() override {
-        cout << "Транспортировка с минимальными затратами за счет " << name << endl;
+    void transportResources(double& profit) override {
+        cout << "Транспортировка ресурсов с минимальными затратами за счет " << name << endl;
+        profit *= 0.9; // Уменьшаем прибыль на 10%
     }
 };
 
-class TechTrader : public Corporation {
+class TechTrader : public Corporation { // Класс трейдера технологий
 public:
     TechTrader(const string& name) : Corporation(name) {}
-
-    void transportResources() override {
-        cout << "Торговля высокотехнологичными ресурсами с помощью " << name << endl;
+    void transportResources(double& profit) override {
+        cout << "Торговля высокотехнологичными ресурсами с " << name << endl;
+        profit *= 1.2; // Увеличиваем прибыль на 20%
     }
 };
 
-class MinerCompany : public Corporation {
+class MinerCompany : public Corporation { // Класс компании-майнера
 public:
     MinerCompany(const string& name) : Corporation(name) {}
-
-    void transportResources() override {
+    void transportResources(double& profit) override {
         cout << "Добыча ресурсов на астероидах с помощью " << name << endl;
+        profit += 50; // Увеличиваем прибыль на 50
     }
+};
+
+class TradeRoute {
+public:
+    Planet* from; // Исходная планета
+    Planet* to; // Планета назначения
+    double cost; // Стоимость маршрута
+    double safety; // Уровень безопасности маршрута
+
+    TradeRoute(Planet* from, Planet* to, double cost, double safety)
+        : from(from), to(to), cost(cost), safety(safety) {}
 };
 
 class Galaxy {
 private:
-    vector<Asteroid*> asteroids;
-    map<pair<Planet*, Planet*>, double> tradeRoutes; 
-
+    vector<unique_ptr<Asteroid>> asteroids; // Вектор астероидов
+    vector<TradeRoute> tradeRoutes; // Вектор торговых маршрутов
+    const double securityThreshold = 5.0; // Порог безопасности для маршрутов
 public:
-    vector<Planet*> planets;
-    void addPlanet(Planet* planet) {
-        planets.push_back(planet);
+    vector<unique_ptr<Planet>> planets; // Вектор планет
+
+    void addPlanet(unique_ptr<Planet> planet) {
+        planets.push_back(move(planet)); // Добавляем планету в вектор
     }
 
-    void addAsteroid(Asteroid* asteroid) {
-        asteroids.push_back(asteroid);
+    void addAsteroid(unique_ptr<Asteroid> asteroid) {
+        asteroids.push_back(move(asteroid)); // Добавляем астероид в вектор
     }
 
-    void addTradeRoute(Planet* p1, Planet* p2, double cost) {
-        tradeRoutes[{p1, p2}] = cost;
+    void addTradeRoute(Planet* p1, Planet* p2, double cost, double safety) {
+        for (const auto& route : tradeRoutes) { // Проверяем, существует ли маршрут между p1 и p2
+            if ((route.from == p1 && route.to == p2) || (route.from == p2 && route.to == p1)) {
+                cout << "Маршрут уже существует между " << p1->getName() << " и " << p2->getName() << "!" << endl;
+                return;
+            }
+        }
+        tradeRoutes.emplace_back(p1, p2, cost, safety);
+        cout << "Добавлен новый торговый маршрут из " << p1->getName() << " в " << p2->getName() 
+            << " со стоимостью " << cost << " и безопасностью " << safety << endl;
     }
 
-    void simulateTurn() {
-        for (auto planet : planets) {
-            cout << planet->getName() << " produces " << planet->produceResources() << " resources." << endl;
+    void simulateTurn(double& totalProfit) {
+        for (const auto& planet : planets) { // Симуляция одного игрового хода
+            double resources = planet->produceResources();
+            cout << planet->getName() << " производит " << resources << " ресурсов." << endl;
+            totalProfit += resources; // Добавляем произведенные ресурсы к общей прибыли
         }
 
+        // Транспортировка ресурсов
         for (const auto& route : tradeRoutes) {
-            cout << "Transporting resources from " << route.first.first->getName() << " to "
-                  << route.first.second->getName() << " with cost " << route.second << endl;
+            double transportProfit = min(route.from->getProduction(), route.to->getDemand()); 
+            totalProfit += transportProfit;
+            cout << "Транспортировка " << transportProfit << " ресурсов из " << route.from->getName() 
+                << " в " << route.to->getName() 
+                << " со стоимостью " << route.cost 
+                << " и безопасностью " << route.safety << endl;
+
+            // Проверяем уровень безопасности маршрута
+            if (route.safety < securityThreshold) {
+                double loss = static_cast<double>(rand() % 30); // Случайные потери
+                cout << "Низкая безопасность! Потеряно " << loss << " ресурсов во время транспортировки." << endl;
+                totalProfit -= loss; 
+            }
+        }
+
+        if (totalProfit < 0) { // Проверка на отрицательную прибыль
+            totalProfit = 0; // Никогда не даем отрицательную прибыль
+            cout << "Ошибка! Прибыль отрицательна!" << endl;
         }
     }
 
     void improveTradeRoute(Planet* p1, Planet* p2, double reduction) {
-        if (tradeRoutes.find({p1, p2}) != tradeRoutes.end()) {
-            tradeRoutes[{p1, p2}] -= reduction;
-            cout << "Improved trade route from " << p1->getName() << " to " << p2->getName() 
-                 << " by reducing cost by " << reduction << endl;
-        } else {
-            cout << "Trade route not found!" << endl;
+        for (auto& route : tradeRoutes) {
+            if (route.from == p1 && route.to == p2) {
+                route.cost -= reduction; // Уменьшаем стоимость маршрута
+                cout << "Улучшенный торговый маршрут из " << p1->getName() << " в " << p2->getName() 
+                     << " за счет снижения затрат на " << reduction << endl;
+                return;
+            }
         }
+        cout << "Торговый маршрут не найден!" << endl; // Если маршрут не найден
     }
 };
 
 int main() {
     Galaxy galaxy;
-
     int numPlanets, numTradeRoutes, numCorporations;
 
-    cout << "Введите номер планеты: ";
+    cout << "Введите количество планет: ";
     cin >> numPlanets;
 
     for (int i = 0; i < numPlanets; ++i) {
@@ -140,7 +186,15 @@ int main() {
         cout << "Введите название, производство, спрос, технологию для планеты " << (i + 1) << ": ";
         cin >> name >> production >> demand >> technology;
 
-        galaxy.addPlanet(new Planet(name, production, demand, technology));
+        if (cin.fail() || production < 0 || demand < 0 || technology < 0) {
+            cout << "Неверный ввод! Пожалуйста, введите положительные числа." << endl;
+            cin.clear(); 
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            --i; 
+            continue;
+        }
+
+        galaxy.addPlanet(make_unique<Planet>(name, production, demand, technology));
     }
 
     cout << "Введите количество торговых маршрутов: ";
@@ -148,48 +202,64 @@ int main() {
 
     for (int i = 0; i < numTradeRoutes; ++i) {
         string name1, name2;
-        double cost;
+        double cost, safety;
 
-        cout << "Введите названия двух планет и стоимость торгового маршрута " << (i + 1) << ": ";
-        cin >> name1 >> name2 >> cost;
+        cout << "Введите названия двух планет, стоимость и уровень безопасности маршрута " << (i + 1) << ": ";
+        cin >> name1 >> name2 >> cost >> safety;
 
         Planet* p1 = nullptr;
         Planet* p2 = nullptr;
 
-        for (auto planet : galaxy.planets) {
-            if (planet->getName() == name1) p1 = planet;
-            if (planet->getName() == name2) p2 = planet;
+        for (const auto& planet : galaxy.planets) {
+            if (planet->getName() == name1) p1 = planet.get();
+            if (planet->getName() == name2) p2 = planet.get();
         }
 
-        if (p1 && p2) {
-            galaxy.addTradeRoute(p1, p2, cost);
+        if (p1 && p2 && cost >= 0 && safety >= 0) {
+            galaxy.addTradeRoute(p1, p2, cost, safety);
         } else {
-            cout << "Одна или обе планеты не найдены!" << endl;
+            cout << "Одна или обе планеты не найдены или неверные значения!" << endl;
         }
     }
 
     cout << "Введите количество корпораций: ";
     cin >> numCorporations;
 
+    vector<unique_ptr<Corporation>> corporations;
+
     for (int i = 0; i < numCorporations; ++i) {
         string name, type;
         cout << "Введите название и тип (Logistics/TechTrader/Miner) корпорации " << (i + 1) << ": ";
         cin >> name >> type;
 
+        unique_ptr<Corporation> corporation;
+
         if (type == "Logistics") {
-            new LogisticsCompany(name);
+            corporation = make_unique<LogisticsCompany>(name);
         } else if (type == "TechTrader") {
-            new TechTrader(name);
+            corporation = make_unique<TechTrader>(name);
         } else if (type == "Miner") {
-            new MinerCompany(name);
+            corporation = make_unique<MinerCompany>(name);
         } else {
             cout << "Неизвестная корпорация!" << endl;
+            --i; 
+            continue;
         }
+
+        corporations.push_back(move(corporation));
+        cout << "Создана корпорация: " << name << " типа " << type << endl;
     }
 
+    double totalProfit = 0;
     char continueGame = 'y';
     while (continueGame == 'y') {
-        galaxy.simulateTurn();
+        galaxy.simulateTurn(totalProfit);
+
+        for (auto& corporation : corporations) {
+            corporation->transportResources(totalProfit);
+        }
+
+        cout << "Общая прибыль: " << totalProfit << endl;
 
         cout << "Выберите действия: (1) Улучшить торговый маршрут (2) Развивать планету (3) Закончить игру: ";
         int choice;
@@ -204,15 +274,15 @@ int main() {
             Planet* p1 = nullptr;
             Planet* p2 = nullptr;
 
-            for (auto planet : galaxy.planets) {
-                if (planet->getName() == name1) p1 = planet;
-                if (planet->getName() == name2) p2 = planet;
+            for (auto& planet : galaxy.planets) {
+                if (planet->getName() == name1) p1 = planet.get();
+                if (planet->getName() == name2) p2 = planet.get();
             }
 
             if (p1 && p2) {
                 galaxy.improveTradeRoute(p1, p2, reduction);
             } else {
-                cout << "Одна из нескольких планет не найдено!" << endl;
+                cout << "Одна из планет не найдена!" << endl;
             }
         } else if (choice == 2) {
             string planetName;
@@ -220,7 +290,7 @@ int main() {
             cout << "Введите название планеты и количество улучшений: ";
             cin >> planetName >> improvement;
 
-            for (auto planet : galaxy.planets) {
+            for (auto& planet : galaxy.planets) {
                 if (planet->getName() == planetName) {
                     planet->improveProduction(improvement);
                     break;
