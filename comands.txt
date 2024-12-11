@@ -1,0 +1,10 @@
+Frost 30 60 0.2
+Fire 100 40 2
+Titanium 300 100 10
+Fire Frost 10 10
+Titanium Frost 60 2
+Titanium Fire 40 6
+
+Travo Miner
+Ame Logistics
+Nano TechTrader
