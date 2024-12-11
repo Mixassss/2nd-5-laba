@@ -108,7 +108,6 @@ private:
     const double securityThreshold = 5.0; // Порог безопасности для маршрутов
 public:
     vector<unique_ptr<Planet>> planets; // Вектор планет
-
     void addPlanet(unique_ptr<Planet> planet) {
         planets.push_back(move(planet)); // Добавляем планету в вектор
     }
@@ -130,34 +129,33 @@ public:
     }
 
     void simulateTurn(double& totalProfit) {
-        for (const auto& planet : planets) { // Симуляция одного игрового хода
-            double resources = planet->produceResources();
-            cout << planet->getName() << " производит " << resources << " ресурсов." << endl;
-            totalProfit += resources; // Добавляем произведенные ресурсы к общей прибыли
-        }
+    for (const auto& planet : planets) { // Симуляция одного игрового хода
+        double resources = planet->produceResources();
+        cout << planet->getName() << " производит " << resources << " ресурсов." << endl;
+        totalProfit += resources; // Добавляем произведенные ресурсы к общей прибыли
+    }
+    for (const auto& route : tradeRoutes) { // Транспортировка ресурсов
+        double transportable = min(route.from->getProduction(), route.to->getDemand());
+        double transportProfit = transportable - route.cost; // Прибыль от транспортировки (учитываем стоимость маршрута)
+        
+        totalProfit += transportProfit;
+        cout << "Транспортировка " << transportable << " ресурсов из " << route.from->getName() 
+            << " в " << route.to->getName() 
+            << " со стоимостью " << route.cost 
+            << " и безопасностью " << route.safety << endl;
 
-        // Транспортировка ресурсов
-        for (const auto& route : tradeRoutes) {
-            double transportProfit = min(route.from->getProduction(), route.to->getDemand()); 
-            totalProfit += transportProfit;
-            cout << "Транспортировка " << transportProfit << " ресурсов из " << route.from->getName() 
-                << " в " << route.to->getName() 
-                << " со стоимостью " << route.cost 
-                << " и безопасностью " << route.safety << endl;
-
-            // Проверяем уровень безопасности маршрута
-            if (route.safety < securityThreshold) {
-                double loss = static_cast<double>(rand() % 30); // Случайные потери
-                cout << "Низкая безопасность! Потеряно " << loss << " ресурсов во время транспортировки." << endl;
-                totalProfit -= loss; 
-            }
-        }
-
-        if (totalProfit < 0) { // Проверка на отрицательную прибыль
-            totalProfit = 0; // Никогда не даем отрицательную прибыль
-            cout << "Ошибка! Прибыль отрицательна!" << endl;
+        if (route.safety < securityThreshold) { // Проверяем уровень безопасности маршрута
+            double loss = static_cast<double>(rand() % static_cast<int>(transportable)); // Случайные потери, не превышающие транспортируемое количество
+            cout << "Низкая безопасность! Потеряно " << loss << " ресурсов во время транспортировки." << endl;
+            totalProfit -= loss; 
         }
     }
+
+    if (totalProfit < 0) { // Проверка на отрицательную прибыль
+        totalProfit = 0; // Никогда не даем отрицательную прибыль
+        cout << "Ошибка! Прибыль отрицательна!" << endl;
+    }
+}
 
     void improveTradeRoute(Planet* p1, Planet* p2, double reduction) {
         for (auto& route : tradeRoutes) {
@@ -175,6 +173,9 @@ public:
 int main() {
     Galaxy galaxy;
     int numPlanets, numTradeRoutes, numCorporations;
+    int maxTurns; // Максимальное количество ходов
+    cout << "Введите количество ходов: ";
+    cin >> maxTurns;
 
     cout << "Введите количество планет: ";
     cin >> numPlanets;
@@ -203,7 +204,6 @@ int main() {
     for (int i = 0; i < numTradeRoutes; ++i) {
         string name1, name2;
         double cost, safety;
-
         cout << "Введите названия двух планет, стоимость и уровень безопасности маршрута " << (i + 1) << ": ";
         cin >> name1 >> name2 >> cost >> safety;
 
@@ -252,9 +252,10 @@ int main() {
 
     double totalProfit = 0;
     char continueGame = 'y';
-    while (continueGame == 'y') {
-        galaxy.simulateTurn(totalProfit);
+    int turnCount = 0; // Счетчик ходов
 
+    while (continueGame == 'y' && turnCount < maxTurns) {
+        galaxy.simulateTurn(totalProfit);
         for (auto& corporation : corporations) {
             corporation->transportResources(totalProfit);
         }
@@ -270,10 +271,8 @@ int main() {
             double reduction;
             cout << "Введите названия двух планет и сумму уменьшения: ";
             cin >> name1 >> name2 >> reduction;
-
             Planet* p1 = nullptr;
             Planet* p2 = nullptr;
-
             for (auto& planet : galaxy.planets) {
                 if (planet->getName() == name1) p1 = planet.get();
                 if (planet->getName() == name2) p2 = planet.get();
@@ -301,6 +300,16 @@ int main() {
         } else {
             cout << "Такого выбора не существует!" << endl;
         }
+
+        turnCount++; // Увеличиваем счетчик ходов
+        cout << "Ход номер: " << turnCount << "/" << maxTurns << endl; // Показываем номер хода
+    }
+
+    // Показать итоговую прибыль перед завершением игры
+    cout << "Игра окончена. Итоговая прибыль: " << totalProfit << endl;
+
+    if (turnCount >= maxTurns) {
+        cout << "Достигнуто максимальное количество ходов. Игра окончена." << endl;
     }
 
     return 0;
